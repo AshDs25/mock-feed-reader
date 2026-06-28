@@ -1,9 +1,13 @@
 'use client';
 
 import Link from "next/link";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, keepPreviousData } from "@tanstack/react-query";
 import { fetchArticles, updateFilterPref } from "@/api/api";
 import { useFeedStore } from "@/lib/store";
+import ListView from "@/components/ListView";
+import ListViewSkeleton from "@/components/ListViewSkeleton";
+import ErrorState from "@/components/ErrorState";
+import EmptyState from "@/components/EmptyState";
 
 export default function FeedPage() {
   const filter = useFeedStore((s) => s.filter);
@@ -11,10 +15,21 @@ export default function FeedPage() {
 
   // Articles are keyed by `filter`, so whenever the store's filter changes,
   // the key changes and TanStack refetches with the new value automatically.
-  const { data: articles, isLoading, isError } = useQuery({
-    queryKey: ["articles", filter],
-    queryFn: () => fetchArticles(filter),
-  });
+  const { data: articles, isLoading, isError, isPlaceholderData, refetch } =
+    useQuery({
+      queryKey: ["articles", filter],
+      queryFn: () => fetchArticles(filter),
+      // Keep showing the previous filter's list while the new one loads,
+      // instead of dropping to skeletons on every toggle.
+      placeholderData: keepPreviousData,
+      // Default is 3 retries (each waits on our 1.2s delay), so the error
+      // takes ~5s to surface. 1 makes it snappy to see.
+      retry: 1,
+    });
+
+  // True whenever fresh data is in flight: first load OR a filter swap that's
+  // still showing the kept (placeholder) list.
+  const isRefreshing = isLoading || isPlaceholderData;
 
   // Dropdown change -> persist the pref via the API -> on the response,
   // update Zustand. Updating the store flips `filter` above, which triggers
@@ -39,24 +54,20 @@ export default function FeedPage() {
         </select>
       </div>
 
-      {isLoading && <div>Loading...</div>}
-      {isError && <div>Error occured</div>}
-      {articles && articles.length === 0 && <div>No data available</div>}
+      {isLoading && <ListViewSkeleton/>}
+      {isError && <ErrorState onRetry={() => refetch()} />}
+      {articles && articles.length === 0 && (
+        <EmptyState
+          title={filter === "unread" ? "You're all caught up" : "No articles yet"}
+          description={
+            filter === "unread"
+              ? "No unread articles. Switch to All to see everything."
+              : "There's nothing to show here right now."
+          }
+        />
+      )}
       {articles && articles.length > 0 && (
-        <ol type="1" style={{ listStyle: "numeric" }}>
-          {articles.map((dt: any) => (
-            <li key={dt.id} className={dt.read ? "text-zinc-500" : ""}>
-              <Link href={`/feed/${dt.id}`} className="hover:underline">
-                {!dt.read && (
-                  <span aria-hidden className="mr-1 text-blue-500">
-                    •
-                  </span>
-                )}
-                {dt.title}
-              </Link>
-            </li>
-          ))}
-        </ol>
+        <ListView articles={articles}/>
       )}
     </div>
   );
