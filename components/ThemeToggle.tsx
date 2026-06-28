@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useThemeStore } from "@/lib/theme-store";
-import { motion } from 'framer-motion'  
+import { motion } from "motion/react";
 
 export default function ThemeToggle() {
   const theme = useThemeStore((s) => s.theme);
@@ -12,6 +12,9 @@ export default function ThemeToggle() {
   // client while the server rendered "light". Only show the real icon once
   // mounted; before that, render a stable placeholder.
   const [mounted, setMounted] = useState(false);
+  // Standard "mounted" guard: the store may rehydrate to a different theme
+  // than the server rendered, so we only show the real icon after mount.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => setMounted(true), []);
 
   // Keep the <html> class in sync with the store so `dark:` utilities apply.
