@@ -4,7 +4,7 @@ A small, frontend-only RSS-style feed reader. Built to demonstrate clean
 separation of **server state** (TanStack Query) from **UI state** (Zustand),
 a fully-mocked API layer, and polished loading / empty / error handling.
 
-> **Live demo:** _add your Vercel URL here_
+> **Live demo:** (https://mock-feed-reader.vercel.app/feed)
 
 There's no real backend — **MSW intercepts the requests and serves mock data**,
 in production as well as development. So the deployed app is fully interactive.
