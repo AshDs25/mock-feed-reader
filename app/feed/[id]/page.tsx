@@ -2,17 +2,21 @@
 
 import Link from "next/link";
 import { useEffect } from "react";
+import { motion } from "motion/react";
 import { useParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { fetchArticleDetailById, markAsRead } from "@/api/api";
 import type { Article } from "@/mocks/data";
+import DetailSkeleton from "@/components/DetailSkeleton";
+import ErrorState from "@/components/ErrorState";
+import EmptyState from "@/components/EmptyState";
 
 export default function ArticleDetailPage() {
   // The route is /feed/[id], so useParams() gives us { id }.
   const { id } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
 
-  const { data: article, isLoading, isError } = useQuery({
+  const { data: article, isLoading, isError, refetch } = useQuery({
     // Per-article cache entry, keyed by id.
     queryKey: ["article", id],
     // queryFn receives TanStack's own context, not our args — so wrap the call
@@ -35,29 +39,51 @@ export default function ArticleDetailPage() {
     },
   });
 
-  // Mark as read once the article is opened.
+  // Mark as read once the article has actually loaded (skip 404s / errors).
   useEffect(() => {
-    if (id) markRead(id);
-  }, [id, markRead]);
+    if (article) markRead(article.id);
+  }, [article, markRead]);
 
-  if (isLoading) return <div>Loading...</div>;
-  if (isError) return <div>Error occured</div>;
-  if (!article) return null;
+  if (isLoading) return <DetailSkeleton />;
+  if (isError)
+    return (
+      <ErrorState
+        message="Couldn't load this article."
+        onRetry={() => refetch()}
+      />
+    );
+  if (!article)
+    return (
+      <div className="space-y-4">
+        <Link href="/feed" className="text-sm text-muted hover:underline">
+          ← Back to feed
+        </Link>
+        <EmptyState
+          title="Article not found"
+          description="This article doesn’t exist or may have been removed."
+        />
+      </div>
+    );
 
   return (
-    <article className="space-y-4">
-      <Link href="/feed" className="text-sm text-zinc-500 hover:underline">
+    <motion.article
+      className="space-y-4"
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.25 }}
+    >
+      <Link href="/feed" className="text-sm text-muted hover:underline">
         ← Back to feed
       </Link>
       <header className="space-y-1">
         <h1 className="text-2xl font-semibold tracking-tight">{article.title}</h1>
-        <p className="text-sm text-zinc-500">{article.source}</p>
+        <p className="text-sm text-muted">{article.source}</p>
       </header>
       <div className="space-y-4 leading-relaxed">
         {article.content.split("\n\n").map((para: string, i: number) => (
           <p key={i}>{para}</p>
         ))}
       </div>
-    </article>
+    </motion.article>
   );
 }

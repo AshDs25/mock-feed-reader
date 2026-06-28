@@ -45,7 +45,8 @@ export const handlers = [
   }),
 
   // Article detail.
-  http.get("/api/articles/:id", ({ params }) => {
+  http.get("/api/articles/:id", async ({ params }) => {
+    await delay(1200); // so the detail skeleton is visible
     const article = articles.find((a) => a.id === params.id);
     return article
       ? HttpResponse.json(article)

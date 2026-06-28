@@ -14,8 +14,10 @@ export async function fetchArticleDetailById({
   id,
 }: {
   id: string;
-}): Promise<Article> {
+}): Promise<Article | null> {
   const res = await fetch(`/api/articles/${id}`);
+  // 404 = the article doesn't exist → a "not found" state, not an error.
+  if (res.status === 404) return null;
   if (!res.ok) throw new Error("Failed to load");
   return res.json();
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import Link from "next/link";
+import { AnimatePresence, motion } from "motion/react";
 import { useQuery, useMutation, keepPreviousData } from "@tanstack/react-query";
 import { fetchArticles, updateFilterPref } from "@/api/api";
 import { useFeedStore } from "@/lib/store";
@@ -27,10 +27,6 @@ export default function FeedPage() {
       retry: 1,
     });
 
-  // True whenever fresh data is in flight: first load OR a filter swap that's
-  // still showing the kept (placeholder) list.
-  const isRefreshing = isLoading || isPlaceholderData;
-
   // Dropdown change -> persist the pref via the API -> on the response,
   // update Zustand. Updating the store flips `filter` above, which triggers
   // the articles refetch.
@@ -47,28 +43,70 @@ export default function FeedPage() {
           value={filter}
           disabled={isPending}
           onChange={(e) => changeFilter(e.target.value as "all" | "unread")}
-          className="rounded border border-zinc-300 bg-transparent px-2 py-1 text-sm dark:border-zinc-700"
+          className="rounded border border-border bg-transparent px-2 py-1 text-sm"
         >
           <option value="all">All</option>
           <option value="unread">Unread</option>
         </select>
       </div>
 
-      {isLoading && <ListViewSkeleton/>}
-      {isError && <ErrorState onRetry={() => refetch()} />}
-      {articles && articles.length === 0 && (
-        <EmptyState
-          title={filter === "unread" ? "You're all caught up" : "No articles yet"}
-          description={
-            filter === "unread"
-              ? "No unread articles. Switch to All to see everything."
-              : "There's nothing to show here right now."
-          }
-        />
-      )}
-      {articles && articles.length > 0 && (
-        <ListView articles={articles}/>
-      )}
+      {/* mode="wait": finish the exit (fade out) before the enter (fade in),
+          so states crossfade instead of overlapping. Each branch needs a
+          unique `key` for AnimatePresence to track enter/exit. */}
+      <AnimatePresence mode="wait">
+        {isLoading ? (
+          <motion.div
+            key="skeleton"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            <ListViewSkeleton />
+          </motion.div>
+        ) : isError ? (
+          <motion.div
+            key="error"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            <ErrorState onRetry={() => refetch()} />
+          </motion.div>
+        ) : articles && articles.length === 0 ? (
+          <motion.div
+            key="empty"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            <EmptyState
+              title={
+                filter === "unread" ? "You're all caught up" : "No articles yet"
+              }
+              description={
+                filter === "unread"
+                  ? "No unread articles. Switch to All to see everything."
+                  : "There's nothing to show here right now."
+              }
+            />
+          </motion.div>
+        ) : articles ? (
+          <motion.div
+            key="list"
+            initial={{ opacity: 0 }}
+            // dim while the next filter's data loads (placeholder shown),
+            // back to full once fresh data arrives and the cards animate
+            animate={{ opacity: isPlaceholderData ? 0.5 : 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            <ListView articles={articles} />
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
     </div>
   );
 }
